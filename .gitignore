@@ -1,0 +1,4 @@
+apollo
+*.log
+config/*.ini
+log/run.log

@@ -1,0 +1,28 @@
+[server]
+;运行模式 debug/release
+AppMode  = debug
+HttpPort = :8199
+
+[logger]
+LogLevel       = debug
+LogToFile      = false
+LogFile        = ./log/run.log
+LogFileMaxSize = 5
+LogFileBackup  = 3
+
+[mqtt]
+Open = "false"
+Addr = "127.0.0.1:1883"
+ClientId = "0001"
+
+;串口配置
+[tuatr]
+Address = "/dev/ttyS5"
+BaudRate = 9600
+TimeOut = 500
+;读取间隔，单位ms
+ReadInterval = 1000
+
+[sensor]
+;发送间隔时间
+ForTime = 30000
