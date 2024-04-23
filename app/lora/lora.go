@@ -5,6 +5,7 @@ import (
 	mqttemqx "apollo/report/mqttEMQX"
 	"apollo/setting"
 	"apollo/utils"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -53,12 +54,13 @@ func LoraInit() {
 		setting.ZAPS.Errorf("读取串口失败：%v", TError)
 	}
 	ReadUatr()
+	go writeUatr()
 	// data := []byte{0xFA ,0x30 ,0x69 ,0x6A ,0x00 ,0x03 ,0x03 ,0x32 ,0x03 ,0x32 ,0x03 ,0xFB}
-	// writeUatr(data)
+	// writeUatrReturn(data)
 
 }
 
-func writeUatr(data []byte) {
+func writeUatr() {
 	if err := md1Pin.Out(gpio.Low); err != nil {
 		setting.ZAPS.Errorf("md1Pin拉低失败：%v", err)
 	}
@@ -67,35 +69,36 @@ func writeUatr(data []byte) {
 	}
 
 	for {
-		_, err := TSerial.Write(data)
-		if err != nil {
-			setting.ZAPS.Debugln("写错误:", err)
+		if len(consts.LoraSendList) > 0 {
+			consts.LoraMutex.Lock()
+
+			bytes, _ := hex.DecodeString(consts.LoraSendList[0])
+			setting.ZAPS.Debugf("Lora发送数据：%s", fmt.Sprintf("% 02X", bytes))
+			writeUatrReturn(bytes)
+
+			consts.LoraSendList = consts.LoraSendList[1:]
+			consts.LoraMutex.Unlock()
+
+			setting.ZAPS.Debugf("Lora发送列表：%s", consts.LoraSendList)
 		}
-		setting.ZAPS.Debugf("发送：%X \n", data)
-		time.Sleep(3000 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 	}
 }
 
 func writeUatrReturn(data []byte) bool {
-	if err := md1Pin.Out(gpio.Low); err != nil {
-		setting.ZAPS.Errorf("md1Pin拉低失败：%v", err)
-	}
-	if err := md0Pin.Out(gpio.High); err != nil {
-		setting.ZAPS.Errorf("md0Pin拉高失败：%v", err)
-	}
-
 	_, err := TSerial.Write(data)
 	if err != nil {
 		setting.ZAPS.Debugln("写错误:", err)
+		return false
 	}
 	setting.ZAPS.Debugln("写入:", data)
-	time.Sleep(1000 * time.Millisecond)
-	buf := make([]byte, 125)
-	n, err := TSerial.Read(buf)
-	if err != nil {
-		setting.ZAPS.Debugln("读错误:", err)
-	}
-	setting.ZAPS.Debugf("接收到的报文（十六进制）：% X\n", buf[:n])
+	// time.Sleep(1000 * time.Millisecond)
+	// buf := make([]byte, 125)
+	// n, err := TSerial.Read(buf)
+	// if err != nil {
+	// 	setting.ZAPS.Debugln("读错误:", err)
+	// }
+	// setting.ZAPS.Debugf("接收到的报文（十六进制）：% X\n", buf[:n])
 	return true
 }
 
@@ -141,7 +144,7 @@ func ReadUatr() {
 								CreateTime: time.Now().Unix(),
 							},
 							"h": mqttemqx.PropertyNode{
-								Value:      fmt.Sprintf("%v", humidity)+"%RH",
+								Value:      fmt.Sprintf("%v", humidity) + "%RH",
 								CreateTime: time.Now().Unix(),
 							},
 							"co": mqttemqx.PropertyNode{
@@ -153,9 +156,10 @@ func ReadUatr() {
 					})
 					mqttemqx.MqttPropertyPublish("sensor", fmt.Sprintf("s-%v", device), data)
 				}
-			}else {
-				setting.ZAPS.Debugf("读取失败：%v", err)
 			}
+			// else {
+			// setting.ZAPS.Debugf("读取失败：%v", err)
+			// }
 		}
 	}()
 }

@@ -34,6 +34,7 @@ func ReportServiceEmqxInit() {
 	}
 	go ProcessUpLinkFrame()
 	ListenGetDevice()
+	ListenCommand()
 }
 
 func ProcessUpLinkFrame() {
@@ -61,16 +62,12 @@ func ProcessUpLinkFrame() {
 					Value:      setting.SystemState.RunTime,
 					CreateTime: time.Now().Unix(),
 				},
-				"deviceOnline": PropertyNode{
-					Value:      setting.SystemState.DeviceOnline,
-					CreateTime: time.Now().Unix(),
-				},
 				"diskUse": PropertyNode{
 					Value:      setting.SystemState.DiskUse,
 					CreateTime: time.Now().Unix(),
 				},
-				"devicePacketLoss": PropertyNode{
-					Value:      setting.SystemState.DevicePacketLoss,
+				"cpuUse": PropertyNode{
+					Value:      setting.SystemState.CpuUse,
 					CreateTime: time.Now().Unix(),
 				},
 			},
@@ -112,4 +109,27 @@ func GetDev(client mqtt.Client, message mqtt.Message) {
 	}
 	consts.DeviceList = list
 	setting.ZAPS.Debugf("设备列表：%s", consts.DeviceList)
+}
+
+// 发布订阅主题，监听发送指令
+func ListenCommand() {
+	propertyTopic := fmt.Sprintf(consts.SendCommandResponseTopic, consts.ProductKey, consts.Key)
+	if err := systemMqttClient.Subscribe(context.Background(), propertyTopic, func(c mqtt.Client, m mqtt.Message) {
+		var result map[string]interface{}
+		if err := json.Unmarshal(m.Payload(), &result); err != nil {
+			setting.ZAPS.Errorf("获取设备列表失败：%s", err)
+		}
+		strLower := strings.ToLower(result["data"].(string))
+		consts.LoraMutex.Lock()
+		if strings.HasSuffix(strLower, "fb") && strings.HasPrefix(strLower, "fa") {
+			consts.LoraSendList = append(consts.LoraSendList, result["data"].(string))
+		} else {
+			setting.ZAPS.Errorf("字符串不符合要求: %s", strLower)
+			return
+		}
+		defer consts.LoraMutex.Unlock()
+	}); err != nil {
+		setting.ZAPS.Errorf("订阅获取设备主题失败：%s", err)
+	}
+	setting.ZAPS.Infof("EMQX上报服务订阅主题%s成功", consts.GetDeviceResponseTopic)
 }
