@@ -23,6 +23,8 @@ var (
 	TimeOut        int
 	TReadInterval  int
 	SFortime       int
+	UAddress       string
+	UBaudRate      int
 )
 
 // GetConf 获取配置文件
@@ -80,4 +82,6 @@ func LoadServer(file *ini.File) {
 	TimeOut = file.Section("tuatr").Key("TimeOut").MustInt(500)
 	TReadInterval = file.Section("tuatr").Key("ReadInterval").MustInt(500)
 	SFortime = file.Section("sensor").Key("ForTime").MustInt(3000)
+	UAddress = file.Section("usb").Key("Address").String()
+	UBaudRate = file.Section("usb").Key("BaudRate").MustInt(9600)
 }

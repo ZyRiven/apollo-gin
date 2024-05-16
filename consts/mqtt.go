@@ -16,4 +16,5 @@ const (
 var (
 	LoraSendList []string		// lora要发送的数据
 	LoraMutex   sync.Mutex		// 加锁
+	USBSendList []string		// lora要发送的数据
 )

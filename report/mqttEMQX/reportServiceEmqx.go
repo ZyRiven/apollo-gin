@@ -73,6 +73,9 @@ func ProcessUpLinkFrame() {
 			},
 			Method: "thing.event.property.post",
 		})
+		// str := setting.SystemState.Ip + setting.SystemState.MemUse + setting.SystemState.SoftVer +
+		// 	setting.SystemState.RunTime + setting.SystemState.DiskUse + setting.SystemState.CpuUse
+		// data, _ := json.Marshal(str)
 		MqttPropertyPublish(consts.ProductKey, consts.Key, data)
 		time.Sleep(25 * time.Second)
 	}
@@ -125,7 +128,7 @@ func ListenCommand() {
 			consts.LoraSendList = append(consts.LoraSendList, result["data"].(string))
 		} else {
 			setting.ZAPS.Errorf("字符串不符合要求: %s", strLower)
-			return
+			consts.USBSendList = append(consts.USBSendList, result["data"].(string))
 		}
 		defer consts.LoraMutex.Unlock()
 	}); err != nil {

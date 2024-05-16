@@ -25,6 +25,8 @@ var (
 	TError  error
 	md1Pin  gpio.PinIO
 	md0Pin  gpio.PinIO
+	USerial *serial.Port
+	UError  error
 )
 
 func LoraInit() {
@@ -53,11 +55,46 @@ func LoraInit() {
 	if TError != nil {
 		setting.ZAPS.Errorf("读取串口失败：%v", TError)
 	}
+
+	UConfig := &serial.Config{
+		Name:        setting.UAddress,
+		Baud:        setting.UBaudRate,
+		Size:        8,
+		Parity:      serial.ParityNone,
+		StopBits:    serial.Stop1,
+		ReadTimeout: time.Millisecond * time.Duration(setting.TimeOut),
+	}
+
+	USerial, UError = serial.OpenPort(UConfig)
+	if UError != nil {
+		setting.ZAPS.Errorf("读取串口失败：%v", UError)
+	}
 	ReadUatr()
 	go writeUatr()
+	go writeUSB()
 	// data := []byte{0xFA ,0x30 ,0x69 ,0x6A ,0x00 ,0x03 ,0x03 ,0x32 ,0x03 ,0x32 ,0x03 ,0xFB}
 	// writeUatrReturn(data)
 
+}
+
+func writeUSB() {
+	for {
+		if len(consts.USBSendList) > 0 {
+			consts.LoraMutex.Lock()
+
+			_, err := USerial.Write([]byte(consts.USBSendList[0]))
+			fmt.Println(consts.USBSendList[0])
+			if err != nil {
+				setting.ZAPS.Debugln("写错误:", err)
+			}
+
+			consts.USBSendList = consts.USBSendList[1:]
+			consts.LoraMutex.Unlock()
+
+			setting.ZAPS.Debugf("Lora发送列表：%s", consts.USBSendList)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func writeUatr() {
@@ -132,6 +169,7 @@ func ReadUatr() {
 					fmt.Println("温度：", t, " 报文：", newVar[12:14])
 					fmt.Println("湿度：", humidity, " 报文：", newVar[14:16])
 					fmt.Println("二氧化碳：", co, " 报文：", newVar[16:20])
+					// data, _ := json.Marshal("FA10606B0001192F93FF000000FB")
 					data, _ := json.Marshal(&mqttemqx.ReportPropertyReq{
 						Id:      uuid.New().String(),
 						Version: consts.BuildVersion,
